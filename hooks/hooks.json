@@ -1,0 +1,32 @@
+{
+  "description": "Antigravity Proxy lifecycle hooks — auto-start proxy on session start, stop on session end",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${ZCODE_PLUGIN_ROOT}/hooks/start-proxy.sh\"",
+            "commandWindows": "powershell -ExecutionPolicy Bypass -File \"%ZCODE_PLUGIN_ROOT%\\hooks\\start-proxy.ps1\"",
+            "timeout": 15,
+            "statusMessage": "Starting Antigravity proxy..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${ZCODE_PLUGIN_ROOT}/hooks/stop-proxy.sh\"",
+            "commandWindows": "powershell -ExecutionPolicy Bypass -File \"%ZCODE_PLUGIN_ROOT%\\hooks\\stop-proxy.ps1\"",
+            "timeout": 5,
+            "statusMessage": "Stopping Antigravity proxy..."
+          }
+        ]
+      }
+    ]
+  }
+}

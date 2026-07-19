@@ -1,0 +1,1 @@
+{"version":3,"file":"refresh.d.ts","sourceRoot":"","sources":["../../src/oauth/refresh.ts"],"names":[],"mappings":"AAAA;;;GAGG;AASH,MAAM,WAAW,cAAc;IAC7B,WAAW,EAAE,MAAM,CAAC;IACpB,SAAS,EAAE,MAAM,CAAC;IAClB,YAAY,EAAE,MAAM,CAAC;CACtB;AAED;;;GAGG;AACH,wBAAsB,kBAAkB,CACtC,YAAY,EAAE,MAAM,EACpB,UAAU,CAAC,EAAE,MAAM,GAClB,OAAO,CAAC,cAAc,CAAC,CA+BzB"}

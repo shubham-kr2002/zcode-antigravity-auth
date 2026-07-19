@@ -1,0 +1,26 @@
+{
+  "name": "antigravity-proxy",
+  "version": "1.0.0",
+  "description": "Access Claude & Gemini models via Google Antigravity OAuth. Auto-starts a local OpenAI-compatible proxy when ZCode launches — no manual setup needed.",
+  "author": {
+    "name": "ZCode Antigravity",
+    "url": "https://github.com/zcode-antigravity-proxy"
+  },
+  "license": "MIT",
+  "keywords": ["antigravity", "oauth", "claude", "gemini", "proxy", "google"],
+  "commands": "./commands",
+  "hooks": "./hooks/hooks.json",
+  "skills": "./skills",
+  "interface": {
+    "displayName": "Antigravity Proxy",
+    "shortDescription": "Claude & Gemini via Google OAuth",
+    "longDescription": "Access Claude Opus/Sonnet and Gemini 3/2.5 models through Google Antigravity OAuth. The proxy auto-starts when ZCode launches — install, login once, and use any model.",
+    "category": "Productivity",
+    "capabilities": ["Lifecycle hooks", "Commands", "Skills"],
+    "defaultPrompt": [
+      "Login to Antigravity with my Google account.",
+      "Show the Antigravity proxy status.",
+      "Set up the Antigravity provider in ZCode."
+    ]
+  }
+}

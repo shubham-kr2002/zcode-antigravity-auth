@@ -1,0 +1,63 @@
+{
+  "name": "zcode-antigravity-proxy",
+  "version": "1.0.0",
+  "description": "ZCode plugin: Access Claude & Gemini models via Google Antigravity OAuth. Auto-starts a local OpenAI-compatible proxy — install, login once, done.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "antigravity-auth": "./dist/cli/auth.js",
+    "zcode-antigravity-proxy": "./dist/index.js"
+  },
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NoeFabris/opencode-antigravity-auth.git"
+  },
+  "keywords": [
+    "zcode",
+    "zcode-plugin",
+    "antigravity",
+    "google",
+    "oauth",
+    "claude",
+    "gemini",
+    "proxy",
+    "ai",
+    "coding-assistant"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "files": [
+    "dist/",
+    ".zcode-plugin/",
+    "hooks/",
+    "commands/",
+    "skills/",
+    "scripts/",
+    "README.md",
+    "AGENTS.MD"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "dependencies": {
+    "@openauthjs/openauth": "^0.4.3",
+    "express": "^5.1.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^24.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}
