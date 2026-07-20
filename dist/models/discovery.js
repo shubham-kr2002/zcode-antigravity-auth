@@ -15,7 +15,8 @@ import { ANTIGRAVITY_ENDPOINT_PROD, getAntigravityHeaders } from "../constants.j
 import { inferModelCapabilities } from "./capabilities.js";
 // ---- Cache ----
 const CACHE_TTL_MS = getModelCacheTtlMs();
-function getModelCacheTtlMs() {
+/** @internal exported for testing */
+export function getModelCacheTtlMs() {
     const env = process.env.ANTIGRAVITY_MODEL_CACHE_TTL_MINUTES;
     const minutes = env ? Number.parseInt(env, 10) : 60;
     return (Number.isFinite(minutes) && minutes > 0 ? minutes : 60) * 60 * 1000;
@@ -139,6 +140,24 @@ export function buildModelRegistry(apiResponse) {
             preSuffixedModels.add(publicName);
             // Pre-suffixed model IS its own alias
             aliases[publicName] = publicName;
+        }
+    }
+    // For pre-suffixed models, add reverse aliases from the base name
+    // to a default tier variant. This way, requesting "gemini-3.5-flash"
+    // (without tier) resolves to e.g. "gemini-3.5-flash-low".
+    const baseNameSeen = new Set();
+    for (const modelId of modelIds) {
+        if (EXCLUDED_MODELS.test(modelId))
+            continue;
+        const entry = apiResponse.models[modelId];
+        const publicName = entry?.modelName ?? modelId;
+        if (!preSuffixedModels.has(publicName))
+            continue;
+        const baseName = publicName.replace(/-(minimal|extra-low|low|medium|high)$/i, "");
+        // Only add the first (lowest-tier) variant as the default alias
+        if (!baseNameSeen.has(baseName)) {
+            baseNameSeen.add(baseName);
+            aliases[baseName] = publicName;
         }
     }
     // Generate aliases for thinking-capable non-pre-suffixed models

@@ -218,14 +218,32 @@ export function buildModelRegistry(
     // Infer capabilities
     capabilities[publicName] = inferModelCapabilities(publicName, displayName);
 
-    // Detect pre-suffixed models (tier encoded in API name itself)
-    const isPreSuffixed = /-(minimal|extra-low|low|medium|high)$/i.test(publicName);
-    if (isPreSuffixed) {
-      preSuffixedModels.add(publicName);
-      // Pre-suffixed model IS its own alias
-      aliases[publicName] = publicName;
-    }
-  }
+	    // Detect pre-suffixed models (tier encoded in API name itself)
+	    const isPreSuffixed = /-(minimal|extra-low|low|medium|high)$/i.test(publicName);
+	    if (isPreSuffixed) {
+	      preSuffixedModels.add(publicName);
+	      // Pre-suffixed model IS its own alias
+	      aliases[publicName] = publicName;
+	    }
+	  }
+
+	  // For pre-suffixed models, add reverse aliases from the base name
+	  // to a default tier variant. This way, requesting "gemini-3.5-flash"
+	  // (without tier) resolves to e.g. "gemini-3.5-flash-low".
+	  const baseNameSeen = new Set<string>();
+	  for (const modelId of modelIds) {
+	    if (EXCLUDED_MODELS.test(modelId)) continue;
+	    const entry: FetchAvailableModelEntry | undefined = apiResponse.models[modelId];
+	    const publicName: string = entry?.modelName ?? modelId;
+	    if (!preSuffixedModels.has(publicName)) continue;
+
+	    const baseName: string = publicName.replace(/-(minimal|extra-low|low|medium|high)$/i, "");
+	    // Only add the first (lowest-tier) variant as the default alias
+	    if (!baseNameSeen.has(baseName)) {
+	      baseNameSeen.add(baseName);
+	      aliases[baseName] = publicName;
+	    }
+	  }
 
   // Generate aliases for thinking-capable non-pre-suffixed models
   for (const modelId of modelIds) {

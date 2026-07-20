@@ -50,9 +50,13 @@ const FALLBACK_MODEL_ALIASES = {
     "gemini-2.5-flash-lite-high": "gemini-2.5-flash-lite",
     // Gemini 3.1 Pro — API models ARE tier-suffixed (identity aliases)
     "gemini-3.1-pro-low": "gemini-3.1-pro-low",
+    // Reverse alias: bare name → default low tier
+    "gemini-3.1-pro": "gemini-3.1-pro-low",
     // Gemini 3.5 Flash — API models ARE tier-suffixed (identity aliases)
     "gemini-3.5-flash-low": "gemini-3.5-flash-low",
     "gemini-3.5-flash-extra-low": "gemini-3.5-flash-extra-low",
+    // Reverse alias: bare name → default low tier
+    "gemini-3.5-flash": "gemini-3.5-flash-low",
     // Claude proxy names (gemini- prefix for compatibility)
     "gemini-claude-opus-4-6-thinking-low": "claude-opus-4-6-thinking",
     "gemini-claude-opus-4-6-thinking-medium": "claude-opus-4-6-thinking",

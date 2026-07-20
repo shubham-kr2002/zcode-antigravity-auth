@@ -70,7 +70,7 @@ export const THINKING_TIER_BUDGETS = {
 
 // ---- Model Aliases (dynamic + fallback) ----
 
-/** Hardcoded fallback aliases when registry is unavailable */
+	/** Hardcoded fallback aliases when registry is unavailable */
 const FALLBACK_MODEL_ALIASES: Record<string, string> = {
   // Gemini 3 Flash variants
   "gemini-3-flash-minimal": "gemini-3-flash",
@@ -90,10 +90,14 @@ const FALLBACK_MODEL_ALIASES: Record<string, string> = {
 
   // Gemini 3.1 Pro — API models ARE tier-suffixed (identity aliases)
   "gemini-3.1-pro-low": "gemini-3.1-pro-low",
+  // Reverse alias: bare name → default low tier
+  "gemini-3.1-pro": "gemini-3.1-pro-low",
 
   // Gemini 3.5 Flash — API models ARE tier-suffixed (identity aliases)
   "gemini-3.5-flash-low": "gemini-3.5-flash-low",
   "gemini-3.5-flash-extra-low": "gemini-3.5-flash-extra-low",
+  // Reverse alias: bare name → default low tier
+  "gemini-3.5-flash": "gemini-3.5-flash-low",
 
   // Claude proxy names (gemini- prefix for compatibility)
   "gemini-claude-opus-4-6-thinking-low": "claude-opus-4-6-thinking",

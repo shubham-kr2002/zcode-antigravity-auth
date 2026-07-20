@@ -49,6 +49,8 @@ interface FetchAvailableModelEntry {
     displayName?: string;
     modelName?: string;
 }
+/** @internal exported for testing */
+export declare function getModelCacheTtlMs(): number;
 declare function getCachePath(): string;
 export declare function loadModelCache(): ModelCache | null;
 export declare function saveModelCache(models: Record<string, {
