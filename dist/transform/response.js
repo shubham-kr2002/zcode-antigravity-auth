@@ -92,11 +92,17 @@ export function transformSSELine(line) {
     catch {
         return null;
     }
-    const candidate = payload.candidates?.[0];
+    // Antigravity may wrap the response in a "response" envelope:
+    //   {"response": {"candidates": [...], "usageMetadata": {...}}}
+    // Unwrap it for consistent processing.
+    const innerPayload = payload?.response
+        ? payload.response
+        : payload;
+    const candidate = innerPayload.candidates?.[0];
     if (!candidate) {
         // Could be a usage-only message at the end
-        if (payload.usageMetadata) {
-            return buildOpenAIChunk({}, null, buildUsage(payload.usageMetadata));
+        if (innerPayload.usageMetadata) {
+            return buildOpenAIChunk({}, null, buildUsage(innerPayload.usageMetadata));
         }
         return null;
     }
@@ -141,16 +147,16 @@ export function transformSSELine(line) {
     }
     // If we have results, add finish + usage as a SEPARATE final chunk
     if (finishReason) {
-        results.push(buildOpenAIChunk({}, finishReason, payload.usageMetadata
-            ? buildUsage(payload.usageMetadata)
+        results.push(buildOpenAIChunk({}, finishReason, innerPayload.usageMetadata
+            ? buildUsage(innerPayload.usageMetadata)
             : undefined));
     }
-    else if (payload.usageMetadata && results.length > 0) {
+    else if (innerPayload.usageMetadata && results.length > 0) {
         // Add usage to the last chunk if no finish reason
         const lastIdx = results.length - 1;
         const lastChunk = results[lastIdx];
         const parsedLast = JSON.parse(lastChunk.replace("data: ", "").trim());
-        parsedLast.usage = buildUsage(payload.usageMetadata);
+        parsedLast.usage = buildUsage(innerPayload.usageMetadata);
         results[lastIdx] = `data: ${JSON.stringify(parsedLast)}\n\n`;
     }
     return results.length > 0 ? results.join("") : null;

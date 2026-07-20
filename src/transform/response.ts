@@ -180,25 +180,32 @@ export function transformSSELine(line: string): string | null {
   const data = line.slice(6).trim();
   if (data === "[DONE]") return "data: [DONE]\n\n";
 
-  let payload: AntigravitySSEPayload;
-  try {
-    payload = JSON.parse(data);
-  } catch {
-    return null;
-  }
+	  let payload: AntigravitySSEPayload;
+	  try {
+	    payload = JSON.parse(data);
+	  } catch {
+	    return null;
+	  }
 
-  const candidate = payload.candidates?.[0];
-  if (!candidate) {
-    // Could be a usage-only message at the end
-    if (payload.usageMetadata) {
-      return buildOpenAIChunk({}, null, buildUsage(payload.usageMetadata));
-    }
-    return null;
-  }
+	  // Antigravity may wrap the response in a "response" envelope:
+	  //   {"response": {"candidates": [...], "usageMetadata": {...}}}
+	  // Unwrap it for consistent processing.
+	  const innerPayload = (payload as Record<string, unknown>)?.response
+	    ? (payload as Record<string, unknown>).response as AntigravitySSEPayload
+	    : payload;
 
-  const parts = candidate.content?.parts ?? [];
-  const finishReason = mapFinishReason(candidate.finishReason);
-  const results: string[] = [];
+	  const candidate = innerPayload.candidates?.[0];
+	  if (!candidate) {
+	    // Could be a usage-only message at the end
+	    if (innerPayload.usageMetadata) {
+	      return buildOpenAIChunk({}, null, buildUsage(innerPayload.usageMetadata));
+	    }
+	    return null;
+	  }
+
+	  const parts = candidate.content?.parts ?? [];
+	  const finishReason = mapFinishReason(candidate.finishReason);
+	  const results: string[] = [];
 
   // Reset tool call tracking on new response (when finishReason is present)
   if (finishReason) {
@@ -244,25 +251,25 @@ export function transformSSELine(line: string): string | null {
     }
   }
 
-  // If we have results, add finish + usage as a SEPARATE final chunk
-  if (finishReason) {
-    results.push(
-      buildOpenAIChunk(
-        {},
-        finishReason,
-        payload.usageMetadata
-          ? buildUsage(payload.usageMetadata)
-          : undefined,
-      ),
-    );
-  } else if (payload.usageMetadata && results.length > 0) {
-    // Add usage to the last chunk if no finish reason
-    const lastIdx = results.length - 1;
-    const lastChunk = results[lastIdx]!;
-    const parsedLast = JSON.parse(lastChunk.replace("data: ", "").trim());
-    parsedLast.usage = buildUsage(payload.usageMetadata);
-    results[lastIdx] = `data: ${JSON.stringify(parsedLast)}\n\n`;
-  }
+	  // If we have results, add finish + usage as a SEPARATE final chunk
+	  if (finishReason) {
+	    results.push(
+	      buildOpenAIChunk(
+	        {},
+	        finishReason,
+	        innerPayload.usageMetadata
+	          ? buildUsage(innerPayload.usageMetadata)
+	          : undefined,
+	      ),
+	    );
+	  } else if (innerPayload.usageMetadata && results.length > 0) {
+	    // Add usage to the last chunk if no finish reason
+	    const lastIdx = results.length - 1;
+	    const lastChunk = results[lastIdx]!;
+	    const parsedLast = JSON.parse(lastChunk.replace("data: ", "").trim());
+	    parsedLast.usage = buildUsage(innerPayload.usageMetadata);
+	    results[lastIdx] = `data: ${JSON.stringify(parsedLast)}\n\n`;
+	  }
 
   return results.length > 0 ? results.join("") : null;
 }

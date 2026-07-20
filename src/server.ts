@@ -360,11 +360,11 @@ async function proxyStream(
     return;
   }
 
-  try {
-    // Use the TransformStream pipeline for robust SSE transformation
-    const textStream = body.pipeThrough(new TextDecoderStream());
-    const transformStream = createStreamingTransform();
-    const readable = textStream.pipeThrough(transformStream);
+	  try {
+	    // Use the TransformStream pipeline for robust SSE transformation
+	    const textStream = body.pipeThrough(new TextDecoderStream());
+	    const transformStream = createStreamingTransform();
+	    const readable = textStream.pipeThrough(transformStream);
 
     const reader = readable.getReader();
     while (true) {
