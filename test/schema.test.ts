@@ -438,4 +438,153 @@ describe("toGeminiSchema", () => {
     const result = toGeminiSchema(undefined);
     expect(result).toBeUndefined();
   });
+
+  // ---- Edge cases ----
+
+  it("handles deeply nested properties (depth > 10)", () => {
+    const deep = { type: "object", properties: {} };
+    let current = deep;
+    for (let i = 0; i < 20; i++) {
+      current.properties = {
+        [`level${i}`]: { type: "object", properties: {} },
+      };
+      current = current.properties[`level${i}`] as Record<string, unknown>;
+    }
+    const result = toGeminiSchema(deep) as Record<string, unknown>;
+    expect(result.type).toBe("OBJECT");
+    let cursor = result.properties as Record<string, unknown>;
+    for (let i = 0; i < 20; i++) {
+      expect(cursor[`level${i}`]).toBeDefined();
+      cursor = (cursor[`level${i}`] as Record<string, unknown>).properties as Record<string, unknown>;
+    }
+  });
+
+  it("omits empty required array (empty filtered list is omitted)", () => {
+    const result = toGeminiSchema({
+      type: "object",
+      properties: { name: { type: "string" } },
+      required: [],
+    }) as Record<string, unknown>;
+    // When all required entries are filtered out, the field is omitted
+    expect(result.required).toBeUndefined();
+  });
+
+  it("handles required with duplicate entries", () => {
+    const result = toGeminiSchema({
+      type: "object",
+      properties: { name: { type: "string" } },
+      required: ["name", "name", "name"],
+    }) as Record<string, unknown>;
+    // Should keep duplicates (not deduplicated by toGeminiSchema)
+    expect(Array.isArray(result.required)).toBe(true);
+    expect(result.required!.length).toBe(3);
+  });
+
+  it("handles allOf with deeply nested schemas", () => {
+    const result = toGeminiSchema({
+      type: "object",
+      properties: {
+        items: {
+          type: "array",
+          items: {
+            allOf: [
+              { type: "object", properties: { id: { type: "string" } } },
+              { type: "object", properties: { name: { type: "string" } } },
+            ],
+          },
+        },
+      },
+    }) as Record<string, unknown>;
+    const items = (result.properties as Record<string, unknown>).items as Record<string, unknown>;
+    expect(items.type).toBe("ARRAY");
+    const allOf = (items.items as Record<string, unknown>).allOf as Record<string, unknown>[];
+    expect(allOf).toHaveLength(2);
+    expect((allOf[0] as Record<string, unknown>).type).toBe("OBJECT");
+    expect((allOf[1] as Record<string, unknown>).type).toBe("OBJECT");
+  });
+
+  it("handles double transformation (already Gemini-formatted schema)", () => {
+    // If a schema is already in Gemini format, transforming again should be idempotent
+    const geminiSchema = {
+      type: "OBJECT",
+      properties: {
+        name: { type: "STRING", description: "The name" },
+      },
+    };
+    const result = toGeminiSchema(geminiSchema) as Record<string, unknown>;
+    expect(result.type).toBe("OBJECT");
+    const props = result.properties as Record<string, unknown>;
+    expect((props.name as Record<string, unknown>).type).toBe("STRING");
+  });
+
+  it("handles schema with no type field", () => {
+    const result = toGeminiSchema({
+      properties: { name: { type: "string" } },
+    }) as Record<string, unknown>;
+    // No type means no uppercase conversion
+    expect(result.type).toBeUndefined();
+    expect(result.properties).toBeDefined();
+  });
+
+  it("handles not at nested depth inside allOf", () => {
+    const result = toGeminiSchema({
+      type: "object",
+      properties: {
+        value: {
+          allOf: [
+            { type: "string" },
+            { not: { type: "null" } },
+          ],
+        },
+      },
+    }) as Record<string, unknown>;
+    const value = (result.properties as Record<string, unknown>).value as Record<string, unknown>;
+    const allOf = value.allOf as Record<string, unknown>[];
+    expect(allOf).toHaveLength(2);
+    expect((allOf[0] as Record<string, unknown>).type).toBe("STRING");
+    // 'not' is in UNSUPPORTED_SCHEMA_FIELDS, but nested schemas inside allOf are processed
+    // The 'not' schema field itself would be stripped from the allOf member
+    const notItem = allOf[1] as Record<string, unknown>;
+    expect(notItem.not).toBeUndefined();
+  });
+});
+
+describe("cleanJSONSchema edge cases", () => {
+  it("handles schema with all required fields null", () => {
+    const result = cleanJSONSchema({
+      type: "object",
+      properties: {},
+      required: null,
+    });
+    // null required should be skipped, placeholder added since no properties
+    expect(result.type).toBe("object");
+    expect(result.properties).toBeDefined();
+    expect(result.required).toContain("_placeholder");
+  });
+
+  it("handles deeply nested properties", () => {
+    const deep = { type: "object", properties: {} };
+    let current = deep;
+    for (let i = 0; i < 20; i++) {
+      current.properties = {
+        [`n${i}`]: { type: "object", properties: {} },
+      };
+      current = current.properties[`n${i}`] as Record<string, unknown>;
+    }
+    const result = cleanJSONSchema(deep);
+    expect(result.type).toBe("object");
+    let cursor = result.properties as Record<string, unknown>;
+    for (let i = 0; i < 20; i++) {
+      expect(cursor[`n${i}`]).toBeDefined();
+      cursor = (cursor[`n${i}`] as Record<string, unknown>).properties as Record<string, unknown>;
+    }
+  });
+
+  it("preserves non-standard type values through cleanJSONSchema", () => {
+    const result = cleanJSONSchema({
+      type: "custom-type",
+      properties: { x: { type: "string" } },
+    });
+    expect(result.type).toBe("custom-type");
+  });
 });

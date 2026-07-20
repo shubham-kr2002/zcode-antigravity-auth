@@ -315,4 +315,77 @@ describe("transformNonStreamResponse", () => {
     expect(parsed.choices[0].message.content).toContain("Internal reasoning");
     expect(parsed.choices[0].message.content).toContain("Final answer");
   });
+
+  // ---- Edge cases ----
+
+  it("maps non-standard finish reasons (SAFETY/RECITATION/BLOCKLIST) to 'stop'", () => {
+    // mapFinishReason only handles stop, length, and tool_calls — all others become "stop"
+    for (const reason of ["SAFETY", "RECITATION", "BLOCKLIST"]) {
+      const response = JSON.stringify({
+        candidates: [
+          {
+            content: { role: "model", parts: [{ text: "Blocked" }] },
+            finishReason: reason,
+          },
+        ],
+      });
+      const result = transformNonStreamResponse(response, "model");
+      const parsed = JSON.parse(result);
+      expect(parsed.choices[0].finish_reason).toBe("stop");
+    }
+  });
+
+  it("handles response with null content but functionCall present", () => {
+    const response = JSON.stringify({
+      candidates: [
+        {
+          content: {
+            role: "model",
+            parts: [
+              {
+                functionCall: {
+                  name: "get_weather",
+                  args: { location: "NYC" },
+                },
+              },
+            ],
+          },
+          finishReason: "STOP",
+        },
+      ],
+    });
+    const result = transformNonStreamResponse(response, "model");
+    const parsed = JSON.parse(result);
+    expect(parsed.choices[0].message.content).toBeNull();
+    expect(parsed.choices[0].message.tool_calls).toHaveLength(1);
+    expect(parsed.choices[0].finish_reason).toBe("tool_calls");
+  });
+
+  it("handles empty candidates array with nested response wrapper", () => {
+    const response = JSON.stringify({ response: { candidates: [] } });
+    const result = transformNonStreamResponse(response, "model");
+    const parsed = JSON.parse(result);
+    expect(parsed.choices[0].message.content).toBe("");
+  });
+
+  it("preserves usage metadata through transformNonStreamResponse", () => {
+    const response = JSON.stringify({
+      candidates: [
+        {
+          content: { role: "model", parts: [{ text: "Hello" }] },
+          finishReason: "STOP",
+        },
+      ],
+      usageMetadata: {
+        promptTokenCount: 50,
+        candidatesTokenCount: 25,
+        totalTokenCount: 75,
+      },
+    });
+    const result = transformNonStreamResponse(response, "model");
+    const parsed = JSON.parse(result);
+    expect(parsed.usage.prompt_tokens).toBe(50);
+    expect(parsed.usage.completion_tokens).toBe(25);
+    expect(parsed.usage.total_tokens).toBe(75);
+  });
 });

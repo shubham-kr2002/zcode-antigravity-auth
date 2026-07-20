@@ -302,4 +302,104 @@ describe("transformRequest", () => {
     expect(toolResponseBlock.parts[0].functionResponse).toBeDefined();
     expect(toolResponseBlock.parts[1].functionResponse).toBeDefined();
   });
+
+  // ---- Edge cases ----
+
+  it("handles empty messages array", () => {
+    const result = makeTransform("claude-sonnet-4-6", []);
+    const body = JSON.parse(result.init.body as string);
+    expect(body.request.contents).toEqual([]);
+  });
+
+  it("handles assistant message with content + tool_calls simultaneously", () => {
+    const result = makeTransform("claude-opus-4-6-thinking", [
+      { role: "user", content: "Analyze and read file" },
+      {
+        role: "assistant",
+        content: "I will read the file for you.",
+        tool_calls: [
+          {
+            id: "call_1",
+            type: "function",
+            function: {
+              name: "read_file",
+              arguments: JSON.stringify({ path: "/test.txt" }),
+            },
+          },
+        ],
+      },
+    ]);
+    const body = JSON.parse(result.init.body as string);
+    const assistantContent = body.request.contents[1];
+    expect(assistantContent.role).toBe("model");
+    // Should have content text + functionCall
+    const parts = assistantContent.parts;
+    const textPart = parts.find((p: { text?: string }) => p.text);
+    const fcPart = parts.find((p: { functionCall?: unknown }) => p.functionCall);
+    expect(textPart).toBeDefined();
+    expect(fcPart).toBeDefined();
+  });
+
+  it("handles tool result without matching tool_call_id", () => {
+    const result = makeTransform("claude-opus-4-6-thinking", [
+      { role: "user", content: "Do something" },
+      {
+        role: "tool",
+        content: "result data",
+        tool_call_id: "nonexistent_call",
+      },
+    ]);
+    const body = JSON.parse(result.init.body as string);
+    // Should still create a user content block with the tool result
+    const userBlocks = body.request.contents.filter(
+      (c: { role: string }) => c.role === "user",
+    );
+    expect(userBlocks.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("passes through temperature and max_tokens to generationConfig", () => {
+    const result = makeTransform(
+      "gemini-2.5-flash",
+      [{ role: "user", content: "Hi" }],
+      { temperature: 0.7, max_tokens: 100 },
+    );
+    const body = JSON.parse(result.init.body as string);
+    expect(body.request.generationConfig.temperature).toBe(0.7);
+    expect(body.request.generationConfig.maxOutputTokens).toBe(100);
+  });
+
+  it("passes through top_p and stop sequences", () => {
+    const result = makeTransform(
+      "gemini-2.5-flash",
+      [{ role: "user", content: "Hi" }],
+      { top_p: 0.9, stop: ["END", "STOP"] },
+    );
+    const body = JSON.parse(result.init.body as string);
+    expect(body.request.generationConfig.topP).toBe(0.9);
+    expect(body.request.generationConfig.stopSequences).toEqual(["END", "STOP"]);
+  });
+
+  it("handles tool with null parameters", () => {
+    const result = makeTransform(
+      "claude-sonnet-4-6",
+      [{ role: "user", content: "test" }],
+      {
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "simple_tool",
+              description: "A tool without parameters",
+              parameters: null as unknown as Record<string, unknown>,
+            },
+          },
+        ],
+      },
+    );
+    const body = JSON.parse(result.init.body as string);
+    const decl = body.request.tools[0].functionDeclarations[0];
+    expect(decl.name).toBe("simple_tool");
+    // Should have a placeholder schema since parameters was null
+    expect(decl.parameters).toBeDefined();
+  });
 });

@@ -64,7 +64,8 @@ interface FetchAvailableModelEntry {
 
 const CACHE_TTL_MS = getModelCacheTtlMs();
 
-function getModelCacheTtlMs(): number {
+/** @internal exported for testing */
+export function getModelCacheTtlMs(): number {
   const env = process.env.ANTIGRAVITY_MODEL_CACHE_TTL_MINUTES;
   const minutes = env ? Number.parseInt(env, 10) : 60;
   return (Number.isFinite(minutes) && minutes > 0 ? minutes : 60) * 60 * 1000;
