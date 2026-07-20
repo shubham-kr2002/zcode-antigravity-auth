@@ -143,9 +143,10 @@ export function buildModelRegistry(apiResponse) {
         }
     }
     // For pre-suffixed models, add reverse aliases from the base name
-    // to a default tier variant. This way, requesting "gemini-3.5-flash"
-    // (without tier) resolves to e.g. "gemini-3.5-flash-low".
-    const baseNameSeen = new Set();
+    // to a default tier variant. Prefer "-low" as the default, falling back
+    // to the "lowest" alphabetical tier if no "-low" variant exists.
+    const baseNameToVariant = new Map();
+    const TIER_ORDER = ["low", "medium", "high", "extra-low", "minimal"]; // prefer low
     for (const modelId of modelIds) {
         if (EXCLUDED_MODELS.test(modelId))
             continue;
@@ -154,11 +155,23 @@ export function buildModelRegistry(apiResponse) {
         if (!preSuffixedModels.has(publicName))
             continue;
         const baseName = publicName.replace(/-(minimal|extra-low|low|medium|high)$/i, "");
-        // Only add the first (lowest-tier) variant as the default alias
-        if (!baseNameSeen.has(baseName)) {
-            baseNameSeen.add(baseName);
-            aliases[baseName] = publicName;
+        const existingVariant = baseNameToVariant.get(baseName);
+        if (!existingVariant) {
+            baseNameToVariant.set(baseName, publicName);
         }
+        else {
+            // Pick the preferred tier (lower index = preferred)
+            const existingTier = (existingVariant.match(/-(minimal|extra-low|low|medium|high)$/i)?.[1] ?? "").toLowerCase();
+            const currentTier = (publicName.match(/-(minimal|extra-low|low|medium|high)$/i)?.[1] ?? "").toLowerCase();
+            const existingRank = TIER_ORDER.indexOf(existingTier);
+            const currentRank = TIER_ORDER.indexOf(currentTier);
+            if (existingRank === -1 || (currentRank !== -1 && currentRank < existingRank)) {
+                baseNameToVariant.set(baseName, publicName);
+            }
+        }
+    }
+    for (const [baseName, publicName] of baseNameToVariant) {
+        aliases[baseName] = publicName;
     }
     // Generate aliases for thinking-capable non-pre-suffixed models
     for (const modelId of modelIds) {

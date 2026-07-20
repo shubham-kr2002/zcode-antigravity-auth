@@ -337,16 +337,25 @@ export function transformRequest(
       if (!generationConfig.maxOutputTokens || (generationConfig.maxOutputTokens as number) <= budget) {
         generationConfig.maxOutputTokens = 64000;
       }
-    } else if (isGemini3Model(antigravityModel)) {
-      // Gemini 3: thinkingLevel string
-      // User-provided budget takes priority over model default tier
-      const level = openaiReq.thinking?.budget_tokens
-        ? budgetToLevel(openaiReq.thinking.budget_tokens)
-        : resolved.thinkingLevel ?? "low";
-      generationConfig.thinkingConfig = {
-        includeThoughts: true,
-        thinkingLevel: level,
-      };
+	    } else if (isGemini3Model(antigravityModel)) {
+	      // Gemini 3: thinkingLevel string.
+	      // User-provided budget takes priority over model default tier.
+	      // Pre-suffixed API models (e.g., "gemini-3.5-flash-low") don't need
+	      // thinkingLevel because the model name already encodes the tier.
+	      // Only set thinking config if the resolver explicitly gave us a level
+	      // or the user explicitly requested a thinking budget.
+	      const userBudget = openaiReq.thinking?.budget_tokens;
+	      if (resolved.thinkingLevel || userBudget) {
+	        const level = userBudget
+	          ? budgetToLevel(userBudget)
+	          : (resolved.thinkingLevel ?? undefined);
+	        if (level) {
+	          generationConfig.thinkingConfig = {
+	            includeThoughts: true,
+	            thinkingLevel: level,
+	          };
+	        }
+	      }
     } else {
       // Gemini 2.5: camelCase numeric budget
       const budget = resolved.thinkingBudget ?? openaiReq.thinking?.budget_tokens ?? 8192;

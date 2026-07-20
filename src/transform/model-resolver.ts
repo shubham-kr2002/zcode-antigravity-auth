@@ -327,9 +327,14 @@ export function resolveModelWithTier(
     resolvedModel.toLowerCase().includes("claude") &&
     resolvedModel.toLowerCase().includes("thinking");
 
-  if (!tier) {
-    // Gemini 3 models without explicit tier get a default thinkingLevel
-    if (isEffectiveGemini3) {
+	  if (!tier) {
+	    // Gemini 3 models without explicit tier get a default thinkingLevel.
+	    // BUT skip if the resolved model is a known pre-suffixed API model
+	    // (e.g., "gemini-3.5-flash-low" — the model name itself encodes the tier
+	    // at the API level, so additional thinkingLevel is redundant).
+	    const registry = getRegistry();
+	    const resolvedIsPreSuffixed = registry.preSuffixedModels.has(resolvedModel);
+	    if (isEffectiveGemini3 && !resolvedIsPreSuffixed) {
       return {
         actualModel: resolvedModel,
         thinkingLevel: "low",
