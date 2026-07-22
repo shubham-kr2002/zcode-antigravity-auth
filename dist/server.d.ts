@@ -24,7 +24,8 @@ export declare function getModelRegistry(): ModelRegistryData;
 export declare function setModelRegistry(registry: ModelRegistryData): void;
 /**
  * Initialize the model registry from cache, API, or fallback.
- * Called once at proxy startup.
+ * Called once at proxy startup. Also sets up periodic background
+ * refresh so new models auto-appear without restarting.
  *
  * @param getAccessToken - Optional async function to get an access token for API discovery.
  *   If not provided, only cache and fallback are used.

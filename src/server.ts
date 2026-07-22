@@ -229,7 +229,8 @@ export function setModelRegistry(registry: ModelRegistryData): void {
 
 /**
  * Initialize the model registry from cache, API, or fallback.
- * Called once at proxy startup.
+ * Called once at proxy startup. Also sets up periodic background
+ * refresh so new models auto-appear without restarting.
  *
  * @param getAccessToken - Optional async function to get an access token for API discovery.
  *   If not provided, only cache and fallback are used.
@@ -253,28 +254,16 @@ export async function initModelRegistry(
     modelRegistry = registry;
     setModelRegistryForResolution(registry);
     log("info", `[models] Loaded ${registry.models.length} models from cache`);
+    // Cache hit — still schedule a background refresh for new models
+    scheduleModelRefresh(getAccessToken);
     return "cache";
   }
 
   // 2. Try calling the API
-  if (getAccessToken) {
-    try {
-      const auth = await getAccessToken();
-      if (auth) {
-        const result = await discoverModels(auth.accessToken, auth.projectId);
-        if (result.source === "api" && result.registry.models.length > 0) {
-          modelRegistry = result.registry;
-          setModelRegistryForResolution(result.registry);
-          log("info", `[models] Discovered ${result.modelCount} models from Antigravity API`);
-          return "api";
-        }
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      log("warn", `[models] API discovery failed: ${msg}. Using fallback.`);
-    }
-  } else {
-    log("warn", "[models] No credentials available — using fallback model list");
+  const source = await refreshModelsFromApi(getAccessToken);
+  if (source) {
+    scheduleModelRefresh(getAccessToken);
+    return source;
   }
 
   // 3. Use fallback
@@ -288,7 +277,45 @@ export async function initModelRegistry(
   modelRegistry = fallbackRegistry;
   setModelRegistryForResolution(fallbackRegistry);
   log("info", `[models] Using fallback list with ${FALLBACK_MODELS.length} hardcoded models`);
+  scheduleModelRefresh(getAccessToken);
   return "fallback";
+}
+
+/** Try to discover models from the API and update the registry. */
+async function refreshModelsFromApi(
+  getAccessToken?: () => Promise<{ accessToken: string; projectId: string } | null>,
+): Promise<"api" | null> {
+  if (!getAccessToken) return null;
+  try {
+    const auth = await getAccessToken();
+    if (auth) {
+      const result = await discoverModels(auth.accessToken, auth.projectId);
+      if (result.source === "api" && result.registry.models.length > 0) {
+        modelRegistry = result.registry;
+        setModelRegistryForResolution(result.registry);
+        log("info", `[models] Discovered ${result.modelCount} models from Antigravity API`);
+        return "api";
+      }
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log("warn", `[models] API discovery failed: ${msg}`);
+  }
+  return null;
+}
+
+let modelRefreshTimer: ReturnType<typeof setInterval> | null = null;
+
+/** Schedule periodic background model refresh (every ~30 min). */
+function scheduleModelRefresh(
+  getAccessToken?: () => Promise<{ accessToken: string; projectId: string } | null>,
+): void {
+  if (modelRefreshTimer || !getAccessToken) return;
+  // Refresh every 30 minutes — faster than the 60-min cache TTL
+  modelRefreshTimer = setInterval(async () => {
+    await refreshModelsFromApi(getAccessToken);
+  }, 30 * 60 * 1000);
+  modelRefreshTimer.unref(); // Don't keep the process alive just for this timer
 }
 
 // ---- Rate Limit Response Handler ----
