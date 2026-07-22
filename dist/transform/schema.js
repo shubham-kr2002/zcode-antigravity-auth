@@ -7,61 +7,44 @@
  */
 // ---- Shared Constants ----
 /**
- * Fields that Gemini API rejects and must be removed from schemas.
- * Antigravity uses strict protobuf-backed JSON validation.
- * Gemini function declarations only support: type, properties, items,
- * required, description, enum, anyOf/oneOf/allOf, default, nullable.
- * All other JSON Schema fields must be stripped.
+ * Fields that the Antigravity API supports in Schema objects (function declarations).
+ * Antigravity uses strict protobuf-backed JSON validation — any field NOT in this set
+ * is rejected with "Unknown name" errors.
+ * Based on the Google Cloud Vertex AI FunctionDeclaration Schema proto.
+ * Only include fields we've confirmed work — be conservative.
  */
-const UNSUPPORTED_SCHEMA_FIELDS = new Set([
-    // JSON Schema meta fields
-    "$schema",
-    "$id",
-    "$comment",
-    "$ref",
-    "$defs",
-    "definitions",
-    // Conditionals
-    "if",
-    "then",
-    "else",
-    "not",
-    // Additional/pattern properties
-    "additionalProperties",
-    "patternProperties",
-    "unevaluatedProperties",
-    "unevaluatedItems",
-    // Dependency fields
-    "dependentRequired",
-    "dependentSchemas",
-    "propertyNames",
-    // Contains
-    "minContains",
-    "maxContains",
-    // Constant value
-    "const",
-    // Content fields
-    "contentMediaType",
-    "contentEncoding",
-    // Numeric constraints
-    "exclusiveMinimum",
-    "exclusiveMaximum",
-    "minimum",
-    "maximum",
-    "multipleOf",
-    // String constraints
-    "minLength",
-    "maxLength",
-    "pattern",
-    "format",
-    // Array constraints
-    "minItems",
-    "maxItems",
-    "uniqueItems",
-    // Object constraints
-    "minProperties",
-    "maxProperties",
+const SUPPORTED_SCHEMA_FIELDS = new Set([
+    "type",
+    "properties",
+    "items",
+    "required",
+    "description",
+    "enum",
+    "nullable",
+    "default",
+    "examples",
+    "anyOf",
+    "oneOf",
+    "allOf",
 ]);
+/**
+ * Strip any field that is NOT in the supported set.
+ * This is safer than maintaining a blocklist — any field Antigravity
+ * doesn't support is automatically dropped.
+ */
+function stripUnsupportedFields(schema) {
+    const result = {};
+    for (const [key, value] of Object.entries(schema)) {
+        if (SUPPORTED_SCHEMA_FIELDS.has(key)) {
+            result[key] = value;
+        }
+    }
+    // Always ensure type is set for the object itself
+    if (!result.type) {
+        result.type = "OBJECT";
+    }
+    return result;
+}
 /** Fields removed in basic Claude-level cleaning. */
 const BASIC_UNSUPPORTED_KEYS = new Set([
     "const",
@@ -183,8 +166,8 @@ export function toGeminiSchema(schema) {
         }
     }
     for (const [key, value] of Object.entries(schema)) {
-        // Skip unsupported fields that Gemini API rejects
-        if (UNSUPPORTED_SCHEMA_FIELDS.has(key)) {
+        // Strip any field that Antigravity doesn't support
+        if (!SUPPORTED_SCHEMA_FIELDS.has(key)) {
             continue;
         }
         if (key === "type" && typeof value === "string") {
